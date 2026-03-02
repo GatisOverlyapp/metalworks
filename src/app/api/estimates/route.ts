@@ -19,8 +19,7 @@ export async function GET() {
     return NextResponse.json(estimates);
   } catch (e) {
     console.error("GET /api/estimates error:", e);
-    const err = e instanceof Error ? { message: e.message, stack: e.stack, name: e.name } : String(e);
-    return NextResponse.json({ error: err }, { status: 500 });
+    return NextResponse.json({ error: "Database error" }, { status: 500 });
   }
 }
 
@@ -35,6 +34,6 @@ export async function POST() {
     return NextResponse.json(estimate);
   } catch (e) {
     console.error("POST /api/estimates error:", e);
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    return NextResponse.json({ error: "Database error" }, { status: 500 });
   }
 }
