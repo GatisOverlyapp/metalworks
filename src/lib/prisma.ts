@@ -1,21 +1,25 @@
 import { PrismaClient } from "@/generated/prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+let prismaInstance: PrismaClient | null = null;
 
-function createPrisma() {
+function createPrisma(): PrismaClient {
   const url = process.env.DATABASE_URL ?? "file:dev.db";
   const authToken = process.env.DATABASE_AUTH_TOKEN || undefined;
-
-  console.log("[prisma] Connecting with URL:", url.substring(0, 30) + "...");
-
-  const adapter = new PrismaLibSql({
-    url,
-    authToken,
-  });
+  const adapter = new PrismaLibSql({ url, authToken });
   return new PrismaClient({ adapter });
 }
 
-export const prisma = globalForPrisma.prisma || createPrisma();
+export function getPrisma(): PrismaClient {
+  if (!prismaInstance) {
+    prismaInstance = createPrisma();
+  }
+  return prismaInstance;
+}
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+// Lazy proxy so prisma is only initialized on first access
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    return (getPrisma() as unknown as Record<string | symbol, unknown>)[prop];
+  },
+});
