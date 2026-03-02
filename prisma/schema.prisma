@@ -1,0 +1,183 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Estimate {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projectName  String  @default("")
+  clientName   String  @default("")
+  clientEmail  String  @default("")
+  clientPhone  String  @default("")
+  clientAddr   String  @default("")
+  companyName  String  @default("")
+  companyReg   String  @default("")
+  companyAddr  String  @default("")
+  companyPhone String  @default("")
+  companyEmail String  @default("")
+  companyBank  String  @default("")
+
+  status    String @default("draft") // draft | sent | accepted | rejected
+  discount  Float  @default(0) // percentage, max 23
+  vatRate   Float  @default(21)
+  notes     String @default("")
+
+  // Denormalized totals (updated on save)
+  totalMaterialsCost Float @default(0)
+  totalProductionCost Float @default(0)
+  totalDeliveryCost  Float @default(0)
+  totalBeforeDiscount Float @default(0)
+  totalDiscount      Float @default(0)
+  totalBeforeVat     Float @default(0)
+  totalVat           Float @default(0)
+  totalWithVat       Float @default(0)
+
+  // Relations
+  flatSheetParts  FlatSheetPart[]
+  tubeProfileParts TubeProfilePart[]
+  auxiliaryItems  AuxiliaryItem[]
+  productionLines ProductionLine[]
+  deliveryLines   DeliveryLine[]
+  proposalLines   ProposalLine[]
+}
+
+model FlatSheetPart {
+  id         String   @id @default(cuid())
+  estimateId String
+  estimate   Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  sortOrder  Int      @default(0)
+
+  name        String  @default("")
+  quantity    Int     @default(1)
+  width       Float   @default(0) // mm
+  length      Float   @default(0) // mm
+  thickness   Float   @default(0) // mm
+  material    String  @default("S235") // steel grade
+  density     Float   @default(7850) // kg/m3
+  pricePerKg  Float   @default(0)
+  weldMeters  Float   @default(0) // meters of welding per piece
+  surfaceArea Float   @default(0) // calculated m2
+  totalKg     Float   @default(0) // calculated
+  totalCost   Float   @default(0) // calculated
+
+  @@index([estimateId])
+}
+
+model TubeProfilePart {
+  id         String   @id @default(cuid())
+  estimateId String
+  estimate   Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  sortOrder  Int      @default(0)
+
+  name        String  @default("")
+  profileType String  @default("shs") // shs | rhs | round_tube | solid_round | angle | channel
+  quantity    Int     @default(1)
+  lengthMm    Float   @default(0) // length per piece in mm
+  dimA        Float   @default(0) // width or diameter (mm)
+  dimB        Float   @default(0) // height (mm), 0 for round/solid
+  thickness   Float   @default(0) // wall thickness (mm)
+  material    String  @default("S235")
+  density     Float   @default(7850) // kg/m3
+  pricePerKg  Float   @default(0)
+  weldMeters  Float   @default(0) // meters of welding per piece
+  totalLengthM Float  @default(0) // calculated total length in meters
+  orderLengthM Float  @default(0) // calculated order length (ceiling to 6m)
+  kgPerM      Float   @default(0) // calculated
+  totalKg     Float   @default(0) // calculated
+  totalCost   Float   @default(0) // calculated
+
+  @@index([estimateId])
+}
+
+model AuxiliaryItem {
+  id         String   @id @default(cuid())
+  estimateId String
+  estimate   Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  sortOrder  Int      @default(0)
+
+  name      String @default("")
+  quantity  Int    @default(1)
+  unit      String @default("gab.") // gab., kompl., m, kg
+  unitPrice Float  @default(0)
+  totalCost Float  @default(0) // calculated
+  notes     String @default("")
+
+  @@index([estimateId])
+}
+
+model ProductionLine {
+  id         String   @id @default(cuid())
+  estimateId String
+  estimate   Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  sortOrder  Int      @default(0)
+
+  category    String @default("") // welding | metalwork | surface | transport | materials | mechanisms | quality
+  name        String @default("")
+  unit        String @default("h") // h, km, kompl., %
+  quantity    Float  @default(0)
+  unitPrice   Float  @default(0)
+  totalCost   Float  @default(0)
+  isAutoLinked Boolean @default(false) // auto-calculated from materials
+
+  @@index([estimateId])
+}
+
+model DeliveryLine {
+  id         String   @id @default(cuid())
+  estimateId String
+  estimate   Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  sortOrder  Int      @default(0)
+
+  category  String @default("") // installation | transport | mechanisms
+  name      String @default("")
+  unit      String @default("h")
+  quantity  Float  @default(0)
+  unitPrice Float  @default(0)
+  totalCost Float  @default(0)
+
+  @@index([estimateId])
+}
+
+model ProposalLine {
+  id         String   @id @default(cuid())
+  estimateId String
+  estimate   Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  sortOrder  Int      @default(0)
+
+  name      String @default("")
+  unit      String @default("kompl.")
+  quantity  Float  @default(1)
+  unitPrice Float  @default(0)
+  totalCost Float  @default(0)
+
+  @@index([estimateId])
+}
+
+model MetalDensity {
+  id       String @id @default(cuid())
+  material String @unique
+  density  Float  // kg/m3
+  label    String // display name in Latvian
+}
+
+model HourlyRate {
+  id       String @id @default(cuid())
+  category String @unique // welding, metalwork, surface, installation
+  rate     Float  // EUR/h
+  label    String
+}
+
+model TransportRate {
+  id       String @id @default(cuid())
+  name     String @unique
+  rate     Float  // EUR/km or EUR/trip
+  unit     String @default("km")
+  label    String
+}
