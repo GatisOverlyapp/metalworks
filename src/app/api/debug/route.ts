@@ -1,30 +1,44 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@libsql/client";
 
 export async function GET() {
   try {
-    const url = process.env.DATABASE_URL ?? "file:dev.db";
+    const url = process.env.DATABASE_URL ?? "";
     const authToken = process.env.DATABASE_AUTH_TOKEN || undefined;
 
-    // Test 1: Check Node version
-    const nodeVersion = process.version;
+    // Test raw URL parsing
+    let urlParseResult: string;
+    try {
+      const parsed = new URL(url);
+      urlParseResult = `OK: ${parsed.protocol}//${parsed.host}`;
+    } catch (e) {
+      urlParseResult = `FAIL: ${e instanceof Error ? e.message : e}`;
+    }
 
-    // Test 2: Try creating client
-    const client = createClient({ url, authToken });
-    const result = await client.execute("SELECT COUNT(*) as cnt FROM MetalDensity");
+    // Test fetch to the URL directly
+    let fetchResult: string;
+    try {
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${authToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ statements: [{ q: "SELECT 1" }] }),
+      });
+      fetchResult = `${resp.status} ${resp.statusText}`;
+    } catch (e) {
+      fetchResult = `FAIL: ${e instanceof Error ? e.message : e}`;
+    }
 
     return NextResponse.json({
-      ok: true,
-      nodeVersion,
-      url: url.substring(0, 50),
-      count: result.rows[0],
+      nodeVersion: process.version,
+      urlPrefix: url.substring(0, 60),
+      urlLength: url.length,
+      hasAuthToken: !!authToken,
+      urlParseResult,
+      fetchResult,
     });
   } catch (e) {
-    return NextResponse.json({
-      ok: false,
-      nodeVersion: process.version,
-      dbUrl: (process.env.DATABASE_URL || "").substring(0, 50),
-      error: e instanceof Error ? e.message : String(e),
-    }, { status: 500 });
+    return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }
