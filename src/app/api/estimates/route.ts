@@ -19,7 +19,8 @@ export async function GET() {
     return NextResponse.json(estimates);
   } catch (e) {
     console.error("GET /api/estimates error:", e);
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    const err = e instanceof Error ? { message: e.message, stack: e.stack, name: e.name } : String(e);
+    return NextResponse.json({ error: err }, { status: 500 });
   }
 }
 
