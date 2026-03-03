@@ -1,5 +1,6 @@
-import { EstimateTabs } from "@/components/EstimateTabs";
-import { EstimateProvider } from "@/components/EstimateProvider";
+import { prisma } from "@/lib/prisma";
+import { notFound } from "next/navigation";
+import { EstimateShell } from "./EstimateShell";
 
 export default async function EstimateLayout({
   children,
@@ -9,10 +10,26 @@ export default async function EstimateLayout({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+
+  const estimate = await prisma.estimate.findUnique({
+    where: { id },
+    include: {
+      jobs: {
+        orderBy: { sortOrder: "asc" },
+        select: { id: true, name: true, sortOrder: true, jobType: true },
+      },
+    },
+  });
+
+  if (!estimate) notFound();
+
   return (
-    <EstimateProvider estimateId={id}>
-      <EstimateTabs estimateId={id} />
+    <EstimateShell
+      estimateId={estimate.id}
+      projectName={estimate.projectName}
+      jobs={estimate.jobs}
+    >
       {children}
-    </EstimateProvider>
+    </EstimateShell>
   );
 }

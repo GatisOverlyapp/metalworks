@@ -1,47 +1,37 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-// GET /api/settings - get all reference data
+// GET /api/settings - get all default rates and metal densities
 export async function GET() {
-  const [densities, hourlyRates, transportRates] = await Promise.all([
-    prisma.metalDensity.findMany({ orderBy: { material: "asc" } }),
-    prisma.hourlyRate.findMany({ orderBy: { category: "asc" } }),
-    prisma.transportRate.findMany({ orderBy: { name: "asc" } }),
+  const [rates, densities] = await Promise.all([
+    prisma.defaultRate.findMany({ orderBy: { lineKey: "asc" } }),
+    prisma.metalDensity.findMany({ orderBy: { name: "asc" } }),
   ]);
 
-  return NextResponse.json({ densities, hourlyRates, transportRates });
+  return NextResponse.json({ rates, densities });
 }
 
-// PUT /api/settings - update reference data
-export async function PUT(request: NextRequest) {
+// PUT /api/settings - update rates and densities
+export async function PUT(request: Request) {
   const body = await request.json();
 
+  if (body.rates) {
+    for (const rate of body.rates) {
+      await prisma.defaultRate.update({
+        where: { id: rate.id },
+        data: { rate: rate.rate, label: rate.label, unit: rate.unit },
+      });
+    }
+  }
+
   if (body.densities) {
-    for (const d of body.densities) {
+    for (const density of body.densities) {
       await prisma.metalDensity.update({
-        where: { id: d.id },
-        data: { density: d.density, label: d.label },
+        where: { id: density.id },
+        data: { density: density.density, nameLv: density.nameLv },
       });
     }
   }
 
-  if (body.hourlyRates) {
-    for (const r of body.hourlyRates) {
-      await prisma.hourlyRate.update({
-        where: { id: r.id },
-        data: { rate: r.rate, label: r.label },
-      });
-    }
-  }
-
-  if (body.transportRates) {
-    for (const t of body.transportRates) {
-      await prisma.transportRate.update({
-        where: { id: t.id },
-        data: { rate: t.rate, label: t.label, unit: t.unit },
-      });
-    }
-  }
-
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ ok: true });
 }
